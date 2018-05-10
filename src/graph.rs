@@ -28,7 +28,7 @@ impl Graph {
             area: DrawingArea::new(),
             max: if let Some(max) = max { Some(RefCell::new(max)) } else { None },
         };
-        g.area.set_hexpand(true);
+        g.area.set_property_expand(true);
         g
     }
 
@@ -43,8 +43,8 @@ impl Graph {
     }
 
     pub fn attach_to(&self, to: &gtk::Grid, row_index: &mut i32) {
-        to.attach(&self.area, 0, *row_index, 2, 1);
-        to.attach(&self.vertical_layout, 2, *row_index, 2, 1);
+        to.attach(&self.area, 0, *row_index, 3, 1);
+        to.attach(&self.vertical_layout, 3, *row_index, 1, 1);
         *row_index += 1;
     }
 

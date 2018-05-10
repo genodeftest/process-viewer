@@ -1,9 +1,10 @@
 use glib::object::Cast;
 use gtk::{
-    self, BoxExt, ContainerExt, GridExt, Inhibit, LabelExt, ProgressBarExt,
-    ScrolledWindowExt, ToggleButtonExt, Widget, WidgetExt,
+    self, BoxExt, ContainerExt, GridExt, Inhibit, LabelExt,
+    ProgressBarExt, ScrolledWindowExt, ToggleButtonExt, Widget, WidgetExt,
 };
 use sysinfo::{self, ComponentExt, NetworkExt, ProcessorExt, SystemExt};
+use pango;
 
 use std::cell::RefCell;
 use std::iter;
@@ -32,10 +33,16 @@ macro_rules! clone {
 
 fn add_header(label_text: &str, parent_grid: &gtk::Grid, row_count: &mut i32) -> gtk::CheckButton {
     let check_box = gtk::CheckButton::new_with_label("Graph view");
+    check_box.set_halign(gtk::Align::End);
     let label = gtk::Label::new(Some(label_text));
+    //let attributes = label.get_attributes();
+    let attributes = pango::AttrList::new();
+    attributes.insert(pango::Attribute::new_weight(pango::Weight::Bold).unwrap());
+    label.set_attributes(Some(&attributes));
+    label.set_halign(gtk::Align::Start);
 
-    parent_grid.attach(&label, 0, *row_count, 3, 1);
-    parent_grid.attach(&check_box, 3, *row_count, 1, 1);
+    parent_grid.attach(&label, 0, *row_count, 2, 1);
+    parent_grid.attach(&check_box, 3, *row_count, 2, 1);
     *row_count += 1;
     check_box
 }
@@ -97,6 +104,9 @@ impl DisplaySysInfo {
                win: &gtk::ApplicationWindow) -> DisplaySysInfo {
 
         let master_grid = gtk::Grid::new();
+        master_grid.set_column_spacing(5);
+        master_grid.set_row_spacing(5);
+        master_grid.set_property_margin(5);
         let mut grid_row_count : i32 = 0;
 
         let mut procs = Vec::new();
@@ -119,8 +129,8 @@ impl DisplaySysInfo {
         let non_graph_layout4 = gtk::Box::new(gtk::Orientation::Vertical, 0);
 
 
-        master_grid.attach(&gtk::Label::new(Some("Total CPU usage")), 0, grid_row_count, 4, 1);
-        grid_row_count += 1;
+        let check_box0 = add_header("Total CPU usage", &master_grid, &mut grid_row_count);
+        master_grid.remove(&check_box0);
         procs.push(gtk::ProgressBar::new());
         {
             let p: &gtk::ProgressBar = &procs[0];
