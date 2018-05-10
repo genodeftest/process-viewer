@@ -1,9 +1,7 @@
-use gdk;
 use glib::object::Cast;
-use glib::translate::ToGlib;
 use gtk::{
     self, BoxExt, ContainerExt, GridExt, Inhibit, LabelExt, ProgressBarExt,
-    ScrolledWindowExt, ToggleButtonExt, Widget, WidgetExt, GtkWindowExt,
+    ScrolledWindowExt, ToggleButtonExt, Widget, WidgetExt,
 };
 use sysinfo::{self, ComponentExt, NetworkExt, ProcessorExt, SystemExt};
 
@@ -32,20 +30,13 @@ macro_rules! clone {
     );
 }
 
-fn create_header(label_text: &str, parent_layout: &gtk::Box) -> gtk::CheckButton {
+fn add_header(label_text: &str, parent_grid: &gtk::Grid, row_count: &mut i32) -> gtk::CheckButton {
     let check_box = gtk::CheckButton::new_with_label("Graph view");
     let label = gtk::Label::new(Some(label_text));
-    let empty = gtk::Label::new(None);
-    let grid = gtk::Grid::new();
-    let horizontal_layout = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    horizontal_layout.pack_start(&gtk::Label::new(None), true, true, 0);
-    horizontal_layout.pack_start(&check_box, false, false, 0);
-    grid.attach(&empty, 0, 0, 3, 1);
-    grid.attach_next_to(&label, Some(&empty), gtk::PositionType::Right, 3, 1);
-    grid.attach_next_to(&horizontal_layout, Some(&label),
-                        gtk::PositionType::Right, 3, 1);
-    grid.set_column_homogeneous(true);
-    parent_layout.pack_start(&grid, false, false, 15);
+
+    parent_grid.attach(&label, 0, *row_count, 3, 1);
+    parent_grid.attach(&check_box, 3, *row_count, 1, 1);
+    *row_count += 1;
     check_box
 }
 
@@ -82,7 +73,8 @@ pub struct DisplaySysInfo {
     procs: Rc<RefCell<Vec<gtk::ProgressBar>>>,
     ram: gtk::ProgressBar,
     swap: gtk::ProgressBar,
-    vertical_layout: gtk::Box,
+    master_grid: gtk::Grid,
+    grid_row_count: i32,
     // network in usage
     in_usage: gtk::Label,
     // network out usage
@@ -103,7 +95,10 @@ pub struct DisplaySysInfo {
 impl DisplaySysInfo {
     pub fn new(sys1: &Rc<RefCell<sysinfo::System>>, note: &mut NoteBook,
                win: &gtk::ApplicationWindow) -> DisplaySysInfo {
-        let vertical_layout = gtk::Box::new(gtk::Orientation::Vertical, 0);
+
+        let master_grid = gtk::Grid::new();
+        let mut grid_row_count : i32 = 0;
+
         let mut procs = Vec::new();
         let scroll = gtk::ScrolledWindow::new(None, None);
         scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
@@ -113,8 +108,6 @@ impl DisplaySysInfo {
         let mut temperature_usage_history = Graph::new(Some(1.));
         let mut network_history = Graph::new(Some(1.));
         let mut check_box3 = None;
-
-        vertical_layout.set_spacing(5);
 
         let non_graph_layout = gtk::Grid::new();
         non_graph_layout.set_column_homogeneous(true);
@@ -126,7 +119,8 @@ impl DisplaySysInfo {
         let non_graph_layout4 = gtk::Box::new(gtk::Orientation::Vertical, 0);
 
 
-        vertical_layout.pack_start(&gtk::Label::new(Some("Total CPU usage")), false, false, 7);
+        master_grid.attach(&gtk::Label::new(Some("Total CPU usage")), 0, grid_row_count, 4, 1);
+        grid_row_count += 1;
         procs.push(gtk::ProgressBar::new());
         {
             let p: &gtk::ProgressBar = &procs[0];
@@ -135,6 +129,7 @@ impl DisplaySysInfo {
             p.set_margin_right(5);
             p.set_margin_left(5);
             p.set_show_text(true);
+            p.set_hexpand(true);
             let processor_list = s.get_processor_list();
             if !processor_list.is_empty() {
                 let pro = &processor_list[0];
@@ -144,14 +139,15 @@ impl DisplaySysInfo {
                 p.set_text(Some("0.0 %"));
                 p.set_fraction(0.);
             }
-            vertical_layout.add(p);
+            master_grid.attach(p, 0, grid_row_count, 4, 1);
+            grid_row_count += 1;
         }
 
 
         //
         // PROCESS PART
         //
-        let check_box = create_header("Process usage", &vertical_layout);
+        let check_box = add_header("Process usage", &master_grid, &mut grid_row_count);
         for (i, pro) in sys1.borrow().get_processor_list().iter().skip(1).enumerate() {
             let i = i + 1;
             procs.push(gtk::ProgressBar::new());
@@ -166,30 +162,31 @@ impl DisplaySysInfo {
             cpu_usage_history.push(RotateVec::new(iter::repeat(0f64).take(61).collect()),
                                    &format!("process {}", i), None);
         }
-        vertical_layout.add(&non_graph_layout);
-        cpu_usage_history.attach_to(&vertical_layout);
+        master_grid.attach(&non_graph_layout, 0, grid_row_count, 4, 1);
+        grid_row_count += 1;
+        cpu_usage_history.attach_to(&master_grid, &mut grid_row_count);
 
 
         //
         // MEMORY PART
         //
-        let check_box2 = create_header("Memory usage", &vertical_layout);
+        let check_box2 = add_header("Memory usage", &master_grid, &mut grid_row_count);
         let ram = create_progress_bar(&non_graph_layout2, 0, "RAM", "");
         let swap = create_progress_bar(&non_graph_layout2, 1, "Swap", "");
-        vertical_layout.pack_start(&non_graph_layout2, false, false, 15);
-        //vertical_layout.add(&non_graph_layout2);
+        master_grid.attach(&non_graph_layout2, 0, grid_row_count, 4, 1);
+        grid_row_count += 1;
         ram_usage_history.push(RotateVec::new(iter::repeat(0f64).take(61).collect()),
                                "RAM", Some(4));
         ram_usage_history.push(RotateVec::new(iter::repeat(0f64).take(61).collect()),
                                "Swap", Some(2));
-        ram_usage_history.attach_to(&vertical_layout);
+        ram_usage_history.attach_to(&master_grid, &mut grid_row_count);
 
 
         //
         // TEMPERATURES PART
         //
         if !sys1.borrow().get_components_list().is_empty() {
-            check_box3 = Some(create_header("Components' temperature", &vertical_layout));
+            check_box3 = Some(add_header("Components' temperature", &master_grid, &mut grid_row_count));
             for component in sys1.borrow().get_components_list() {
                 let horizontal_layout = gtk::Box::new(gtk::Orientation::Horizontal, 10);
                 // TODO: add max and critical temperatures as well
@@ -206,15 +203,16 @@ impl DisplaySysInfo {
                                                                    .collect()),
                                                component.get_label(), None);
             }
-            vertical_layout.add(&non_graph_layout3);
-            temperature_usage_history.attach_to(&vertical_layout);
+            master_grid.attach(&non_graph_layout3, 0, grid_row_count, 4, 1);
+            grid_row_count += 1;
+            temperature_usage_history.attach_to(&master_grid, &mut grid_row_count);
         }
 
 
         //
         // NETWORK PART
         //
-        let check_box4 = create_header("Network usage", &vertical_layout);
+        let check_box4 = add_header("Network usage", &master_grid, &mut grid_row_count);
         // input data
         let in_usage = gtk::Label::new(format_number(0).as_str());
         let horizontal_layout = gtk::Box::new(gtk::Orientation::Horizontal, 10);
@@ -233,8 +231,9 @@ impl DisplaySysInfo {
         non_graph_layout4.add(&horizontal_layout);
         network_history.push(RotateVec::new(iter::repeat(0f64).take(61).collect()),
                              "Output data", None);
-        vertical_layout.add(&non_graph_layout4);
-        network_history.attach_to(&vertical_layout);
+        master_grid.attach(&non_graph_layout4, 0, grid_row_count, 4, 1);
+        grid_row_count += 1;
+        network_history.attach_to(&master_grid, &mut grid_row_count);
         network_history.area.set_margin_bottom(20);
 
 
@@ -246,7 +245,7 @@ impl DisplaySysInfo {
         let temperature_usage_history = connect_graph(temperature_usage_history);
         let network_history = connect_graph(network_history);
 
-        scroll.add(&vertical_layout);
+        scroll.add(&master_grid);
         let scroll : Widget = scroll.upcast();
         note.create_tab("System usage", &scroll);
 
@@ -256,7 +255,8 @@ impl DisplaySysInfo {
             swap: swap.clone(),
             out_usage: out_usage.clone(),
             in_usage: in_usage.clone(),
-            vertical_layout: vertical_layout,
+            master_grid: master_grid,
+            grid_row_count: grid_row_count,
             components: components,
             cpu_usage_history: Rc::clone(&cpu_usage_history),
             ram_usage_history: Rc::clone(&ram_usage_history),

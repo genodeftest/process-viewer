@@ -1,5 +1,5 @@
 use cairo;
-use gtk::{self, BoxExt, ContainerExt, DrawingArea, StateFlags, WidgetExt};
+use gtk::{self, ContainerExt, DrawingArea, GridExt, StateFlags, WidgetExt};
 use std::cell::RefCell;
 use gdk::{self, WindowExt};
 
@@ -13,7 +13,6 @@ pub struct Graph {
     colors: Vec<Color>,
     pub data: Vec<RotateVec<f64>>,
     vertical_layout: gtk::Box,
-    horizontal_layout: gtk::Box,
     pub area: DrawingArea,
     max: Option<RefCell<f64>>,
 }
@@ -26,27 +25,27 @@ impl Graph {
             colors: vec!(),
             data: vec!(),
             vertical_layout: gtk::Box::new(gtk::Orientation::Vertical, 0),
-            horizontal_layout: gtk::Box::new(gtk::Orientation::Horizontal, 0),
             area: DrawingArea::new(),
             max: if let Some(max) = max { Some(RefCell::new(max)) } else { None },
         };
-        g.area.set_property_expand(true);
-        g.horizontal_layout.add(&g.area);
-        g.horizontal_layout.pack_start(&g.vertical_layout, false, true, 15);
-        g.horizontal_layout.set_margin_left(5);
+        g.area.set_hexpand(true);
         g
     }
 
     pub fn hide(&self) {
-        self.horizontal_layout.hide();
+        self.area.hide();
+        self.vertical_layout.hide();
     }
 
     pub fn show_all(&self) {
-        self.horizontal_layout.show_all();
+        self.area.show_all();
+        self.vertical_layout.show_all();
     }
 
-    pub fn attach_to(&self, to: &gtk::Box) {
-        to.add(&self.horizontal_layout);
+    pub fn attach_to(&self, to: &gtk::Grid, row_index: &mut i32) {
+        to.attach(&self.area, 0, *row_index, 2, 1);
+        to.attach(&self.vertical_layout, 2, *row_index, 2, 1);
+        *row_index += 1;
     }
 
     pub fn push(&mut self, d: RotateVec<f64>, s: &str, override_color: Option<usize>) {
