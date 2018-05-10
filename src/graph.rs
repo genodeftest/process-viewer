@@ -1,5 +1,5 @@
 use cairo;
-use gtk::{self, BoxExt, ContainerExt, DrawingArea, ScrolledWindowExt, StateFlags, WidgetExt};
+use gtk::{self, BoxExt, ContainerExt, DrawingArea, StateFlags, WidgetExt};
 use std::cell::RefCell;
 use gdk::{self, WindowExt};
 
@@ -13,7 +13,6 @@ pub struct Graph {
     colors: Vec<Color>,
     pub data: Vec<RotateVec<f64>>,
     vertical_layout: gtk::Box,
-    scroll_layout: gtk::ScrolledWindow,
     horizontal_layout: gtk::Box,
     pub area: DrawingArea,
     max: Option<RefCell<f64>>,
@@ -27,15 +26,13 @@ impl Graph {
             colors: vec!(),
             data: vec!(),
             vertical_layout: gtk::Box::new(gtk::Orientation::Vertical, 0),
-            scroll_layout: gtk::ScrolledWindow::new(None, None),
             horizontal_layout: gtk::Box::new(gtk::Orientation::Horizontal, 0),
             area: DrawingArea::new(),
             max: if let Some(max) = max { Some(RefCell::new(max)) } else { None },
         };
-        g.scroll_layout.set_min_content_width(90);
-        g.scroll_layout.add(&g.vertical_layout);
+        g.area.set_property_expand(true);
         g.horizontal_layout.add(&g.area);
-        g.horizontal_layout.pack_start(&g.scroll_layout, false, true, 15);
+        g.horizontal_layout.pack_start(&g.vertical_layout, false, true, 15);
         g.horizontal_layout.set_margin_left(5);
         g
     }

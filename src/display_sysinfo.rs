@@ -2,8 +2,8 @@ use gdk;
 use glib::object::Cast;
 use glib::translate::ToGlib;
 use gtk::{
-    self, BoxExt, ContainerExt, GridExt, Inhibit, LabelExt, ProgressBarExt, ToggleButtonExt, Widget,
-    WidgetExt, GtkWindowExt,
+    self, BoxExt, ContainerExt, GridExt, Inhibit, LabelExt, ProgressBarExt,
+    ScrolledWindowExt, ToggleButtonExt, Widget, WidgetExt, GtkWindowExt,
 };
 use sysinfo::{self, ComponentExt, NetworkExt, ProcessorExt, SystemExt};
 
@@ -106,6 +106,7 @@ impl DisplaySysInfo {
         let vertical_layout = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let mut procs = Vec::new();
         let scroll = gtk::ScrolledWindow::new(None, None);
+        scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
         let mut components = vec!();
         let mut cpu_usage_history = Graph::new(None);
         let mut ram_usage_history = Graph::new(None);
@@ -240,10 +241,6 @@ impl DisplaySysInfo {
         //
         // Putting everyting into places now.
         //
-        let area = cpu_usage_history.area.clone();
-        let area2 = ram_usage_history.area.clone();
-        let area3 = temperature_usage_history.area.clone();
-        let area4 = network_history.area.clone();
         let cpu_usage_history = connect_graph(cpu_usage_history);
         let ram_usage_history = connect_graph(ram_usage_history);
         let temperature_usage_history = connect_graph(temperature_usage_history);
@@ -271,22 +268,6 @@ impl DisplaySysInfo {
             network_check_box: check_box4.clone(),
         };
         tmp.update_ram_display(&sys1.borrow(), false);
-
-        win.add_events(gdk::EventType::Configure.to_glib() as i32);
-        // ugly way to resize drawing area, I should find a better way
-        win.connect_configure_event(move |w, _| {
-            // To silence the annoying warning:
-            // "(.:2257): Gtk-WARNING **: Allocating size to GtkWindow 0x7f8a31038290 without
-            // calling gtk_widget_get_preferred_width/height(). How does the code know the size to
-            // allocate?"
-            w.get_preferred_width();
-            let w = w.clone().upcast::<gtk::Window>().get_size().0 - 130;
-            area.set_size_request(w, 200);
-            area2.set_size_request(w, 200);
-            area3.set_size_request(w, 200);
-            area4.set_size_request(w, 200);
-            false
-        });
 
         check_box.clone().upcast::<gtk::ToggleButton>()
                  .connect_toggled(clone!(non_graph_layout, cpu_usage_history => move |c| {
